@@ -19,54 +19,76 @@ import java.util.Iterator;
 import javax.swing.JPanel;
 
 public class GraphicsDisplay extends JPanel {
+    // массив точек
     private ArrayList<Double[]> graphicsData;
+
     private ArrayList<Double[]> originalData;
     private int selectedMarker = -1;
+    // границы диапозона пространства
     private double minX;
     private double maxX;
     private double minY;
     private double maxY;
     private double[][] viewport = new double[2][2];
     private ArrayList<double[][]> undoHistory = new ArrayList(5);
+    // масштаб
     private double scaleX;
     private double scaleY;
+    // стили для чертения линий
     private BasicStroke axisStroke;
     private BasicStroke gridStroke;
     private BasicStroke markerStroke;
     private BasicStroke selectionStroke;
+    private BasicStroke rectangleStroke;
+    // шрифты к подписям осей и числовых значений на осях
     private Font axisFont;
     private Font labelsFont;
     private static DecimalFormat formatter = (DecimalFormat)NumberFormat.getInstance();
-    private boolean scaleMode = false;
+    // флаги
+    private boolean rectangleMode = false;
+    private boolean scaleMode = false; // приближение
     private boolean changeMode = false;
+    // точка
     private double[] originalPoint = new double[2];
+    // Фигура, представляющая прямоугольник
     private java.awt.geom.Rectangle2D.Double selectionRect = new java.awt.geom.Rectangle2D.Double();
-
+//инциализация  повторно используемых объектов, представляющих стили черчения линий и шрифт написания
     public GraphicsDisplay() {
+        // фон
         this.setBackground(Color.WHITE);
+        // перо для рисования осей
         this.axisStroke = new BasicStroke(2.0F, 0, 0, 10.0F, (float[])null, 0.0F);
+        // перо для рисования сетки
         this.gridStroke = new BasicStroke(1.0F, 0, 0, 10.0F, new float[]{4.0F, 4.0F}, 0.0F);
+        // перо для рисования точек(маркеров)
         this.markerStroke = new BasicStroke(1.0F, 0, 0, 10.0F, (float[])null, 0.0F);
         this.selectionStroke = new BasicStroke(1.0F, 0, 0, 10.0F, new float[]{10.0F, 10.0F}, 0.0F);
+        this.rectangleStroke = new BasicStroke(4.0F, 0, 0, 10.0F, new float[]{4.0F, 4.0F}, 0.0F);
+        // Шрифт для подписей осей координат
         this.axisFont = new Font("Serif", 1, 36);
+        // шрифт для подписей числовых значений на осях
         this.labelsFont = new Font("Serif", 0, 10);
-        formatter.setMaximumFractionDigits(5);
-        this.addMouseListener(new GraphicsDisplay.MouseHandler());
-        this.addMouseMotionListener(new GraphicsDisplay.MouseMotionHandler());
+        formatter.setMaximumFractionDigits(5); // устанавливает максимальное количество цифр после десятичной точки в форматируемом объекте
+        this.addMouseListener(new GraphicsDisplay.MouseHandler()); // ?
+        this.addMouseMotionListener(new GraphicsDisplay.MouseMotionHandler()); // ?
     }
-
+    //Данный метод вызывается из обработчика элемента меню "Открыть файл с графиком"
+    // главного окна приложения в случае успешной загрузки данных
+    // перерисовка
     public void displayGraphics(ArrayList<Double[]> graphicsData) {
         this.graphicsData = graphicsData;
+        // список размера graphicsData
         this.originalData = new ArrayList(graphicsData.size());
         Iterator var3 = graphicsData.iterator();
-
+ // с помощью hasNext можно узнать, если следующий элемент
         while(var3.hasNext()) {
-            Double[] point = (Double[])var3.next();
-            Double[] newPoint = new Double[]{new Double(point[0]), new Double(point[1])};
+           //С помощью метода hasNext() можно узнать, есть ли следующий элемент, и не достигнут ли конец
+            Double[] point = (Double[])var3.next(); // получаем точку
+            Double[] newPoint = new Double[]{new Double(point[0]), new Double(point[1])}; // тоже самое что double n[2] = {x,y}
             this.originalData.add(newPoint);
         }
-
-        this.minX = ((Double[])graphicsData.get(0))[0];
+        // получаем максмальные знаечния для y и
+        this.minX = ((Double[])graphicsData.get(0))[0]; // возвращаю double[0] в котором x и y и беру [0] - x
         this.maxX = ((Double[])graphicsData.get(graphicsData.size() - 1))[0];
         this.minY = ((Double[])graphicsData.get(0))[1];
         this.maxY = this.minY;
@@ -83,7 +105,7 @@ public class GraphicsDisplay extends JPanel {
 
         this.zoomToRegion(this.minX, this.maxY, this.maxX, this.minY);
     }
-
+ // метод для приближения
     public void zoomToRegion(double x1, double y1, double x2, double y2) {
         this.viewport[0][0] = x1;
         this.viewport[0][1] = y1;
@@ -91,19 +113,37 @@ public class GraphicsDisplay extends JPanel {
         this.viewport[1][1] = y2;
         this.repaint();
     }
-
+ //  пределение  коэффициента  масштаба  и  границ отображаемой области пространства, сохранение и восстановление настроек рисования,
+ //  а также вызов (по необходимости) методов, осуществляющих отображение элементов графика
     public void paintComponent(Graphics g) {
+        //Вызвать метод предка для заливки области цветом заднего фона* Эта функциональность -единственное, что осталось в наследство от * paintComponentкласса JPane
         super.paintComponent(g);
+        // масштабирования если знаем viewport
         this.scaleX = this.getSize().getWidth() / (this.viewport[1][0] - this.viewport[0][0]);
         this.scaleY = this.getSize().getHeight() / (this.viewport[0][1] - this.viewport[1][1]);
+        //Если данные графика не загружены (при показе компонента при // запуске программы) -ничего не делать
         if (this.graphicsData != null && this.graphicsData.size() != 0) {
+            //Преобразовать экземпляр Graphics к Graphics2D
             Graphics2D canvas = (Graphics2D)g;
+            // отрисовать сетку
             this.paintGrid(canvas);
+            //отрисовываются оси координат
             this.paintAxis(canvas);
+            // отрисовать график
             this.paintGraphics(canvas);
+            // маркера
             this.paintMarkers(canvas);
+            // подписи
             this.paintLabels(canvas);
+            this.paintRectangle(canvas);
             this.paintSelection(canvas);
+        }
+    }
+    private void paintRectangle(Graphics2D canvas){
+        if(this.rectangleMode){
+            canvas.setStroke(this.rectangleStroke);
+            canvas.setColor(Color.RED);
+            canvas.draw(this.selectionRect);
         }
     }
 
@@ -114,17 +154,18 @@ public class GraphicsDisplay extends JPanel {
             canvas.draw(this.selectionRect);
         }
     }
-
+   //  Отрисовка графика по прочитанным координатам
     private void paintGraphics(Graphics2D canvas) {
         canvas.setStroke(this.markerStroke);
         canvas.setColor(Color.RED);
         Double currentX = null;
         Double currentY = null;
         Iterator var5 = this.graphicsData.iterator();
-
+         // должны нарисовать график
         while(var5.hasNext()) {
             Double[] point = (Double[])var5.next();
             if (point[0] >= this.viewport[0][0] && point[1] <= this.viewport[0][1] && point[0] <= this.viewport[1][0] && point[1] >= this.viewport[1][1]) {
+                // если текущий икс и игрик ноль то ставим "перо в точку", а дальше пойдем рисовать от нее
                 if (currentX != null && currentY != null) {
                     canvas.draw(new java.awt.geom.Line2D.Double(this.translateXYtoPoint(currentX, currentY), this.translateXYtoPoint(point[0], point[1])));
                 }
@@ -135,18 +176,21 @@ public class GraphicsDisplay extends JPanel {
         }
 
     }
-
+   // метод для отображения точек графика(маркеров)
     private void paintMarkers(Graphics2D canvas) {
+        // Установить специальное перо для черчения контуров маркеров
         canvas.setStroke(this.markerStroke);
+        // Выбрать красный цвета для контуров маркеров
         canvas.setColor(Color.RED);
+        // Выбрать красный цвет для закрашивания маркеров внутри
         canvas.setPaint(Color.RED);
         java.awt.geom.Ellipse2D.Double lastMarker = null;
         int i = -1;
         Iterator var5 = this.graphicsData.iterator();
-
+   // Организовать цикл по всем точкам графика
         while(var5.hasNext()) {
             Double[] point = (Double[])var5.next();
-            ++i;
+            ++i; // ?
             if (point[0] >= this.viewport[0][0] && point[1] <= this.viewport[0][1] && point[0] <= this.viewport[1][0] && point[1] >= this.viewport[1][1]) {
                 byte radius;
                 if (i == this.selectedMarker) {
@@ -154,15 +198,21 @@ public class GraphicsDisplay extends JPanel {
                 } else {
                     radius = 3;
                 }
-
+                // Инициализировать эллипс как объект для представления маркера
                 java.awt.geom.Ellipse2D.Double marker = new java.awt.geom.Ellipse2D.Double();
+                // Эллипс будет задаваться посредством указания координат его центра и угла прямоугольника, в который он вписан
+                // центр - в точке (x,y)
                 Point2D center = this.translateXYtoPoint(point[0], point[1]);
+                // Угол прямоугольника
                 Point2D corner = new java.awt.geom.Point2D.Double(center.getX() + (double)radius, center.getY() + (double)radius);
+                // Задать эллипс по центру и диагонали
                 marker.setFrameFromCenter(center, corner);
                 if (i == this.selectedMarker) {
                     lastMarker = marker;
                 } else {
+                    // контур
                     canvas.draw(marker);
+                    // залить
                     canvas.fill(marker);
                 }
             }
@@ -176,19 +226,26 @@ public class GraphicsDisplay extends JPanel {
         }
 
     }
-
+    // отрисовка значений осей
     private void paintLabels(Graphics2D canvas) {
+        // выбрать цвет для подписей
         canvas.setColor(Color.BLACK);
+        // Подписи  делаются специальным шрифтом
         canvas.setFont(this.labelsFont);
+        // Создать объект контекста отображения текста -для получения
+        // характеристик устройства (экрана)
         FontRenderContext context = canvas.getFontRenderContext();
+        // позиция по y
         double labelYPos;
+        // y2 < 0 и y1> 0
         if (this.viewport[1][1] < 0.0D && this.viewport[0][1] > 0.0D) {
             labelYPos = 0.0D;
         } else {
             labelYPos = this.viewport[1][1];
         }
-
+        // позиция по x
         double labelXPos;
+        // x1 < 0 и x2> 0
         if (this.viewport[0][0] < 0.0D && this.viewport[1][0] > 0.0D) {
             labelXPos = 0.0D;
         } else {
@@ -196,14 +253,17 @@ public class GraphicsDisplay extends JPanel {
         }
 
         double pos = this.viewport[0][0];
-
+        // шаг
         double step;
+        // Представляет  точку,  с  координатами (x,y). Используется  для задания фигур, но сам фигурой не является.
         java.awt.geom.Point2D.Double point;
         String label;
+        // граница
         Rectangle2D bounds;
         for(step = (this.viewport[1][0] - this.viewport[0][0]) / 10.0D; pos < this.viewport[1][0]; pos += step) {
             point = this.translateXYtoPoint(pos, labelYPos);
             label = formatter.format(pos);
+            //  Возвращает границы указанного String в указанном Graphics контекст
             bounds = this.labelsFont.getStringBounds(label, context);
             canvas.drawString(label, (float)(point.getX() + 5.0D), (float)(point.getY() - bounds.getHeight()));
         }
@@ -226,7 +286,7 @@ public class GraphicsDisplay extends JPanel {
         }
 
     }
-
+ // отображение сетки
     private void paintGrid(Graphics2D canvas) {
         canvas.setStroke(this.gridStroke);
         canvas.setColor(Color.GRAY);
@@ -246,11 +306,15 @@ public class GraphicsDisplay extends JPanel {
 
         canvas.draw(new java.awt.geom.Line2D.Double(this.translateXYtoPoint(this.viewport[0][0], this.viewport[0][1]), this.translateXYtoPoint(this.viewport[1][0], this.viewport[0][1])));
     }
-
+    // отображение подписей осей
     private void paintAxis(Graphics2D canvas) {
+        // Установить особое начертание для осей
         canvas.setStroke(this.axisStroke);
         canvas.setColor(Color.BLACK);
+        // шрифт
         canvas.setFont(this.axisFont);
+        // Создать объект контекста отображения текста -для получения
+        // характеристик устройства (экрана)
         FontRenderContext context = canvas.getFontRenderContext();
         Rectangle2D bounds;
         java.awt.geom.Point2D.Double labelPos;
@@ -275,15 +339,17 @@ public class GraphicsDisplay extends JPanel {
     }
 
     protected java.awt.geom.Point2D.Double translateXYtoPoint(double x, double y) {
+        // Вычисляем смещение Xот самой левой точки (minX)
         double deltaX = x - this.viewport[0][0];
+        // Вычисляем смещение Yот точки верхней точки (maxY)
         double deltaY = this.viewport[0][1] - y;
         return new java.awt.geom.Point2D.Double(deltaX * this.scaleX, deltaY * this.scaleY);
     }
-
+        // ?
     protected double[] translatePointToXY(int x, int y) {
         return new double[]{this.viewport[0][0] + (double)x / this.scaleX, this.viewport[0][1] - (double)y / this.scaleY};
     }
-
+   // найти точку
     protected int findSelectedPoint(int x, int y) {
         if (this.graphicsData == null) {
             return -1;
@@ -302,7 +368,7 @@ public class GraphicsDisplay extends JPanel {
             return -1;
         }
     }
-
+  // восстановить график по умолчанию
     public void reset() {
         this.displayGraphics(this.originalData);
     }
@@ -332,12 +398,23 @@ public class GraphicsDisplay extends JPanel {
                 if (GraphicsDisplay.this.selectedMarker >= 0) {
                     GraphicsDisplay.this.changeMode = true;
                     GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(8));
-                } else {
+                }
+
+
+
+                else {
                     GraphicsDisplay.this.scaleMode = true;
                     GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(5));
                     GraphicsDisplay.this.selectionRect.setFrame((double)ev.getX(), (double)ev.getY(), 1.0D, 1.0D);
                 }
 
+
+            }
+            if(ev.getButton() == 3){
+                GraphicsDisplay.this.rectangleMode = true;
+                GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(5));
+                GraphicsDisplay.this.selectionRect.setFrame((double)ev.getX()-25, (double)ev.getY()-25, 50, 50);
+                GraphicsDisplay.this.repaint();
             }
         }
 
@@ -355,6 +432,11 @@ public class GraphicsDisplay extends JPanel {
                     GraphicsDisplay.this.repaint();
                 }
 
+            }
+            if (ev.getButton() == 3){
+                GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(0));
+                GraphicsDisplay.this.rectangleMode = false;
+                GraphicsDisplay.this.reset();
             }
         }
     }
@@ -388,7 +470,7 @@ public class GraphicsDisplay extends JPanel {
 
                 ((Double[])GraphicsDisplay.this.graphicsData.get(GraphicsDisplay.this.selectedMarker))[1] = newY;
                 GraphicsDisplay.this.repaint();
-            } else {
+            } if((GraphicsDisplay.this.scaleMode))  {
                 double width = (double)ev.getX() - GraphicsDisplay.this.selectionRect.getX();
                 if (width < 5.0D) {
                     width = 5.0D;

@@ -87,13 +87,14 @@ public class MainFrame extends JFrame {
                 // добавляем в массив
                 graphicsData.add(new Double[]{x, y});
             }
-
+            // имеются ли координаты
             if (graphicsData.size() > 0 && graphicsData!=null) {
                 this.fileLoaded = true;
                 this.resetGraphicsMenuItem.setEnabled(true);
+                // Вызывать метод отображения графика
                 this.display.displayGraphics(graphicsData);
             }
-
+         // ошибки
         } catch (FileNotFoundException var6) {
             JOptionPane.showMessageDialog(this, "Указанный файл не найден", "Ошибка загрузки данных", 2);
         } catch (IOException var7) {
@@ -103,6 +104,7 @@ public class MainFrame extends JFrame {
 
     public static void main(String[] args) {
         MainFrame frame = new MainFrame();
+        // Создать и показать экземпляр главного окна приложения
         frame.setDefaultCloseOperation(3);
         frame.setVisible(true);
     }
